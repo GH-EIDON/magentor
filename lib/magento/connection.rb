@@ -46,6 +46,10 @@ module Magento
           retry
         end
         raise Magento::ApiError, "#{e.faultCode} -> #{e.faultString}"
+      rescue Errno::EPIPE => e
+        logger.debug "exception: Errno::EPIPE -> #{e.message}"
+        connect!
+        retry
       end
 
       def call_with_caching(method = nil, *args)
