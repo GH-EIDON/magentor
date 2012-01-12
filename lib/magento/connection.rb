@@ -9,7 +9,7 @@ module Magento
     end
 
     def client
-      @client ||= XMLRPC::Client.new(config[:host], config[:path], config[:port])
+      @client || client!
     end
 
     def connect
@@ -21,6 +21,9 @@ module Magento
     end
 
     private
+      def client!
+        @client = XMLRPC::Client.new(config[:host], config[:path], config[:port])
+      end
 
       def connect!
         logger.debug "call: login"
@@ -34,6 +37,7 @@ module Magento
       end
 
       def call_without_caching(method = nil, *args)
+        attempts = 0
         logger.debug "call: #{method}, #{args.inspect}"
         connect
         retry_on_connection_error do
@@ -48,8 +52,14 @@ module Magento
         raise Magento::ApiError, "#{e.faultCode} -> #{e.faultString}"
       rescue Errno::EPIPE => e
         logger.debug "exception: Errno::EPIPE -> #{e.message}"
+        client!
         connect!
-        retry
+        attempts += 1
+        if attempts < 2
+          retry
+        else
+          raise
+        end
       end
 
       def call_with_caching(method = nil, *args)
